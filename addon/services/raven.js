@@ -1,17 +1,17 @@
+/* eslint-disable ember/avoid-leaking-state-in-ember-objects */
+
 import Ember from 'ember';
+import { assign as _assign, merge } from '@ember/polyfills';
+import Service from '@ember/service';
+import { computed, set } from '@ember/object';
+import { typeOf, isPresent } from '@ember/utils';
+
+import RSVP from 'rsvp';
 import Raven from 'raven';
-import { parseRegexErrors } from 'ember-cli-sentry/utils/parse-regex-errors';
 
 // Ember merge is deprecated as of 2.5, but we need to check for backwards
 // compatibility.
-const assign = Ember.assign || Ember.merge;
-
-const {
-  RSVP,
-  Service,
-  computed,
-  typeOf
-} = Ember;
+const assign = _assign || merge;
 
 /**
  * Default available logger service.
@@ -68,7 +68,7 @@ export default Service.extend({
    * @type Ember.ComputedProperty
    */
   isRavenUsable: computed(function() {
-    return Raven.isSetup() === true;
+    return typeof(FastBoot) === 'undefined' && Raven.isSetup() === true;
   }).volatile(),
 
   /**
@@ -82,23 +82,16 @@ export default Service.extend({
       debug = true,
       includePaths = [],
       whitelistUrls = [],
-      serviceName = 'raven',
       serviceReleaseProperty = 'release',
       ravenOptions = {}
     } = config.sentry;
 
     let ignoreErrors = this.get('ignoreErrors');
-    if (Ember.isPresent(ignoreErrors)) {
-      Ember.set(ravenOptions, 'ignoreErrors', ignoreErrors);
-    } else if (Ember.get(ravenOptions, 'ignoreErrors.length')) {
-      Ember.deprecate(`Please set "ignoreErrors" on the "${serviceName}" service instead of in the "config/environment.js" file`, false, {
-        id: 'ember-cli-sentry.ignore-errors-in-service',
-        until: '3.0.0',
-      });
-      Ember.set(ravenOptions, 'ignoreErrors', parseRegexErrors(ravenOptions.ignoreErrors));
+    if (isPresent(ignoreErrors)) {
+      set(ravenOptions, 'ignoreErrors', ignoreErrors);
     }
 
-    Ember.set(ravenOptions, 'ignoreUrls', this.get('ignoreUrls'));
+    set(ravenOptions, 'ignoreUrls', this.get('ignoreUrls'));
 
     var dataCallback = function(data) {
         const normalize = filename => filename.split('/www/', 2)[1];
@@ -168,6 +161,20 @@ export default Service.extend({
       throw new Error(message);
     }
     return true;
+  },
+
+  /**
+   * Tries to have Raven capture breadcrumb, or log it.
+   *
+   * @method captureBreadcrumb
+   * @param {Object} breadcrumb The breadcrumb to capture
+   */
+  captureBreadcrumb(breadcrumb) {
+    if (this.get('isRavenUsable')) {
+      Raven.captureBreadcrumb(...arguments);
+    } else {
+      Ember.Logger.info(breadcrumb);
+    }
   },
 
   /**

@@ -93,19 +93,6 @@ export default Service.extend({
 
     set(ravenOptions, 'ignoreUrls', this.get('ignoreUrls'));
 
-    var dataCallback = function(data) {
-        const normalize = filename => filename.split('/www/', 2)[1];
-
-        data.exception.values[0].stacktrace.frames.forEach(frame => {
-          frame.filename = "~/" + normalize(frame.filename);
-        })
-
-        data.culprit = data.exception.values[0].stacktrace.frames[0].filename;
-        return data;
-    };
-
-    Ember.set(ravenOptions, 'dataCallback', dataCallback);
-
     try {
       Raven.debug = debug;
 
